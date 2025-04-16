@@ -1,4 +1,10 @@
-﻿public enum Suit { Hearts, Diamonds, Clubs, Spades }
+﻿public enum Suit
+{
+    Harten,
+    Ruiten,
+    Klaveren,
+    Schoppen
+}
 
 public class Card
 {

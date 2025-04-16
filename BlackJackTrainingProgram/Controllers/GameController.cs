@@ -6,11 +6,6 @@
 
     public GameController()
     {
-        Players = new List<Player>
-        {
-            new Player("Speler 1"),
-            new Player("Speler 2")
-        };
         Dealer = new Dealer();
         Shoe = new Shoe(2);
     }
@@ -19,217 +14,220 @@
     {
         Console.Clear();
         ShowHeader();
+        VraagAantalSpelers();
         MenuLoop();
+    }
+
+    void VraagAantalSpelers()
+    {
+        Console.Write("Hoeveel spelers? (1-4): ");
+        int aantal;
+        while (!int.TryParse(Console.ReadLine(), out aantal) || aantal < 1 || aantal > 4)
+            Console.Write("Ongeldige invoer. Probeer opnieuw (1-4): ");
+
+        Players = new List<Player>();
+        for (int i = 1; i <= aantal; i++)
+            Players.Add(new Player($"Speler {i}"));
     }
 
     void ShowHeader()
     {
-        Console.WriteLine("\n=======================================");
-        Console.WriteLine("           Welkom bij het Spel!");
-        Console.WriteLine("=======================================");
-        Console.WriteLine($"Spelers: {string.Join(", ", Players.Select(p => p.Name))}");
-        Console.WriteLine("=======================================");
+       
     }
 
     void MenuLoop()
     {
         while (true)
         {
-            Console.WriteLine("\n======================== Menu ========================");
-            Console.WriteLine("1. Geef Kaart aan Speler 1");
-            Console.WriteLine("2. Geef Kaart aan Speler 2");
-            Console.WriteLine("3. Geef Kaart aan Dealer");
-            Console.WriteLine("4. Toon Handen");
-            Console.WriteLine("5. Speel Ronde Automatisch");
-            Console.WriteLine("6. Afsluiten");
-            Console.WriteLine("7. Controleer op Blackjacks");
-            Console.WriteLine("======================================================");
-            Console.Write("Kies een optie (1-7): ");
-            var keuze = Console.ReadLine();
+            Console.Clear();
+            ShowHeader();
+            ToonHanden();
 
-            Console.WriteLine("======================================================");
+            Console.WriteLine("\nMENU:");
+            Console.WriteLine("1. Deel kaart aan speler");
+            Console.WriteLine("2. Deel kaart aan dealer");
+            Console.WriteLine("3. Nieuwe ronde starten");
+            Console.WriteLine("4. Stoppen");
+            Console.Write("Keuze: ");
 
+            string keuze = Console.ReadLine();
             switch (keuze)
             {
-                case "1": ManualGiveCard(1); break;
-                case "2": ManualGiveCard(2); break;
-                case "3": ManualGiveCard(0); break;  // Dealer is index 0
-                case "4": ShowHands(); break;
-                case "5": FinishRound(); break;
-                case "6": return;
-                case "7": CheckForBlackjacks(); break;
-                default: Console.WriteLine("Ongeldige keuze, probeer opnieuw."); break;
+                case "1": DeelKaartAanSpeler(); break;
+                case "2": DeelKaartAanDealer(); break;
+                case "3": NieuweRonde(); break;
+                case "4": return;
+                default: Console.WriteLine("Ongeldige keuze."); break;
             }
         }
     }
 
-    void ManualGiveCard(int playerIndex)
+    void DeelKaartAanSpeler()
     {
-        if (playerIndex == 0)  // Dealer
+        Console.Write($"Welke speler (1-{Players.Count}): ");
+        if (int.TryParse(Console.ReadLine(), out int index) && index >= 1 && index <= Players.Count)
         {
-            var card = Shoe.DrawCard();
-            Dealer.Hand.Add(card);
-            int dealerScore = Dealer.CalculatePoints();
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine($"Dealer trok: {card}. Nieuwe score: {dealerScore}");
-            Console.ResetColor();
-        }
-        else if (playerIndex == 1 || playerIndex == 2) 
-        {
-            var player = Players[playerIndex - 1];
-            if (player.HasStood)
+            var speler = Players[index - 1];
+            if (speler.HasFinished)
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"Speler {playerIndex} heeft al gepast.");
-                Console.ResetColor();
+                Console.WriteLine($"{speler.Name} is al klaar.");
                 return;
             }
 
-            var card = Shoe.DrawCard();
-            player.Hand.Add(card);
-            int playerScore = player.CalculatePoints();
-            Console.WriteLine($"Speler {playerIndex} trok: {card}. Nieuwe score: {playerScore}");
-
-            if (playerScore >= 18)
+            int huidigeScore = speler.CalculatePoints();
+            if (huidigeScore >= 18)
             {
-                player.HasStood = true;
-                Console.WriteLine($"Speler {playerIndex} past nu met {playerScore}.");
-                if (player.CheckBlackjack())
+                speler.HasStood = true;
+                speler.HasFinished = true;
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"{speler.Name} past automatisch met {huidigeScore} punten.");
+                Console.ResetColor();
+            }
+            else
+            {
+                var kaart = Shoe.DrawCard();
+                speler.Hand.Add(kaart);
+                int nieuweScore = speler.CalculatePoints();
+                Console.WriteLine($"{speler.Name} kreeg: {kaart}");
+
+                if (speler.Hand.Count == 2 && speler.CheckBlackjack())
                 {
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine($"🎉 Speler {playerIndex} heeft BLACKJACK!");
+                    Console.WriteLine($"{speler.Name} heeft BLACKJACK!");
+                    speler.HasBlackjack = true;
+                    speler.HasFinished = true;
+                }
+                else if (nieuweScore > 21)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"{speler.Name} is busted met {nieuweScore}.");
+                    speler.IsBusted = true;
+                    speler.HasFinished = true;
+                }
+                else if (nieuweScore >= 18)
+                {
+                    speler.HasStood = true;
+                    speler.HasFinished = true;
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"{speler.Name} past automatisch met {nieuweScore} punten.");
                     Console.ResetColor();
                 }
             }
         }
-    }
-
-    void ShowHands()
-    {
-        Console.WriteLine("\n==================== Heden Handen ====================");
-        for (int i = 0; i < Players.Count; i++)
+        else
         {
-            var player = Players[i];
-            string handStr = string.Join(", ", player.Hand);
-            int score = player.CalculatePoints();
-            string blackjack = player.Hand.Count == 2 && player.CheckBlackjack() ? " BLACKJACK!" : "";
-
-            if (score > 21)
-                Console.ForegroundColor = ConsoleColor.Red;
-            else if (score >= 18)
-                Console.ForegroundColor = ConsoleColor.Green;
-
-            Console.WriteLine($"Speler {i + 1}: {handStr} = {score}{blackjack}");
-            Console.ResetColor();
+            Console.WriteLine("Ongeldige speler.");
         }
 
-        string dealerHand = string.Join(", ", Dealer.Hand);
-        int dealerScore = Dealer.CalculatePoints();
-        string dealerBJ = Dealer.Hand.Count == 2 && Dealer.CheckBlackjack() ? " BLACKJACK!" : "";
-
-        if (dealerScore > 21)
-            Console.ForegroundColor = ConsoleColor.Red;
-        else if (dealerScore >= 18)
-            Console.ForegroundColor = ConsoleColor.Green;
-
-        Console.WriteLine($"Dealer: {dealerHand} = {dealerScore}{dealerBJ}");
-        Console.ResetColor();
-        Console.WriteLine("=======================================================");
+        Console.WriteLine("Druk op Enter om verder te gaan...");
+        Console.ReadLine();
     }
 
-    void CheckForBlackjacks()
+    void DeelKaartAanDealer()
     {
-        bool anyBlackjack = false;
+        var kaart = Shoe.DrawCard();
+        Dealer.Hand.Add(kaart);
+        Console.WriteLine($"Dealer kreeg: {kaart}");
 
-        foreach (var player in Players)
-        {
-            int score = player.CalculatePoints();
-            if (score == 21 && player.Hand.Count == 2)
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"{player.Name} heeft Blackjack!");
-                player.HasBlackjack = true;
-                player.HasFinished = true;
-                anyBlackjack = true;
-                Console.ResetColor();
-            }
-            else if (score > 21)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"{player.Name} is busted met een score van {score}.");
-                player.IsBusted = true;
-                player.HasFinished = true;
-                Console.ResetColor();
-            }
-        }
+        int score = Dealer.CalculatePoints();
 
-        int dealerScore = Dealer.CalculatePoints();
-        if (dealerScore == 21 && Dealer.Hand.Count == 2)
+        if (Dealer.Hand.Count == 2 && Dealer.CheckBlackjack())
         {
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("Dealer heeft Blackjack!");
+            Console.WriteLine("Dealer heeft BLACKJACK!");
             Dealer.HasBlackjack = true;
             Dealer.HasFinished = true;
-            anyBlackjack = true;
-            Console.ResetColor();
         }
-        else if (dealerScore > 21)
+        else if (score > 21)
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"Dealer is busted met een score van {dealerScore}.");
+            Console.WriteLine($"Dealer is busted met {score}.");
             Dealer.IsBusted = true;
             Dealer.HasFinished = true;
-            Console.ResetColor();
         }
 
-        if (!anyBlackjack)
-        {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("Geen Blackjacks gevonden.");
-            Console.ResetColor();
-        }
-
-        ShowHands();
+        Console.ResetColor();
+        Console.WriteLine("Druk op Enter om verder te gaan...");
+        Console.ReadLine();
     }
 
-    void FinishRound()
+    void LaatSpelersBeslissen()
     {
-        bool allStood = false;
-        while (!allStood)
+        foreach (var speler in Players)
         {
-            allStood = true;
-            foreach (var player in Players)
-            {
-                if (player.HasFinished) continue;
+            if (speler.HasFinished) continue;
+            speler.MakeDecision(Shoe);
 
-                player.MakeDecision(Shoe);
-                if (!player.HasStood) allStood = false;
+            if (speler.CalculatePoints() > 21)
+            {
+                speler.IsBusted = true;
+                speler.HasFinished = true;
             }
         }
 
-        int dealerPoints = Dealer.CalculatePoints();
-        foreach (var player in Players)
+        Console.WriteLine("Spelers hebben beslissingen genomen.");
+        Console.WriteLine("Druk op Enter om verder te gaan...");
+        Console.ReadLine();
+    }
+
+    void NieuweRonde()
+    {
+        foreach (var speler in Players)
         {
-            int playerPoints = player.CalculatePoints();
-            bool correct = playerPoints <= 21 && (playerPoints > dealerPoints || dealerPoints > 21);
-            Dealer.AddScore(correct);
-            Console.ForegroundColor = correct ? ConsoleColor.Green : ConsoleColor.Red;
-            Console.WriteLine($"Speler {Players.IndexOf(player) + 1} heeft {playerPoints} tegen Dealer's {dealerPoints} -> {(correct ? "Correct" : "Fout")}");
-            Console.ResetColor();
+            speler.Hand.Clear();
+            speler.HasBlackjack = false;
+            speler.IsBusted = false;
+            speler.HasFinished = false;
+            speler.HasStood = false;
         }
 
-        Players.ForEach(p =>
-        {
-            p.Hand.Clear();
-            p.HasStood = false;
-            p.HasFinished = false;
-            p.HasBlackjack = false;
-            p.IsBusted = false;
-        });
-
         Dealer.Hand.Clear();
-        Dealer.HasFinished = false;
         Dealer.HasBlackjack = false;
         Dealer.IsBusted = false;
+        Dealer.HasFinished = false;
+
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine("Nieuwe ronde gestart.");
+        Console.ResetColor();
+        Console.WriteLine("Druk op Enter om verder te gaan...");
+        Console.ReadLine();
+    }
+
+    void ToonHanden()
+    {
+        Console.WriteLine("HUIDIGE HANDEN:\n");
+
+        for (int i = 0; i < Players.Count; i++)
+        {
+            var speler = Players[i];
+            string kaarten = string.Join(", ", speler.Hand);
+            int punten = speler.CalculatePoints();
+            string status = speler.HasBlackjack ? "BLACKJACK" :
+                            speler.IsBusted ? "BUSTED" :
+                            speler.HasStood ? "STOOD" : "";
+
+            Console.ForegroundColor = SpelerKleur(i);
+            Console.WriteLine($"{speler.Name}: {kaarten} = {punten} {status}");
+        }
+
+        Console.ForegroundColor = ConsoleColor.White;
+        string dealerKaarten = string.Join(", ", Dealer.Hand);
+        int dealerScore = Dealer.CalculatePoints();
+        string dealerStatus = Dealer.HasBlackjack ? "BLACKJACK" :
+                              Dealer.IsBusted ? "BUSTED" : "";
+        Console.WriteLine($"Dealer: {dealerKaarten} = {dealerScore} {dealerStatus}");
+        Console.ResetColor();
+    }
+
+    ConsoleColor SpelerKleur(int index)
+    {
+        return index switch
+        {
+            0 => ConsoleColor.Cyan,
+            1 => ConsoleColor.Yellow,
+            2 => ConsoleColor.Magenta,
+            3 => ConsoleColor.Blue,
+            _ => ConsoleColor.Gray,
+        };
     }
 }
