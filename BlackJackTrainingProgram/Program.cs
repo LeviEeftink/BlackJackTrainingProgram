@@ -1,8 +1,14 @@
-﻿class Program
+﻿using Blackjack.Blackjack;
+
+namespace Blackjack
 {
-    static void Main(string[] args)
+    class Program
     {
-        GameController game = new GameController();
-        game.Start();
+        static void Main(string[] args)
+        {
+            var game = new GameController();
+            game.Start();
+        }
     }
+
 }
